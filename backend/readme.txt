@@ -2,6 +2,8 @@ npm iniy -y
 npm install express mongoose jsonwebtoken bcryptjs cors dotenv socket.io redis cloudinary multer
 npm install redis
 npm install -g redis-cli
+npm install jsonwebtoken bcryptjs socket.io "@socket.io/redis-adapter"
+
 
 // https://cloud.redis.io/#/add-subscription/free
 // redis public endpoint (aws) : redis-12442.c212.ap-south-1-1.ec2.redns.redis-cloud.com:12442

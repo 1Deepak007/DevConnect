@@ -2,8 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import connectDB from './config/db.js'; // MongoDB connection
-import redisClient from './config/redis.js'; // Redis connection
+import { Server } from 'socket.io';
+import connectDB from './config/db.js';
+import redisClient from './config/redis.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -11,91 +13,93 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.CLIENT_URL
+        : 'http://localhost:3000',
+    credentials: true
+}));
 app.use(express.json());
 
-// Test Routes
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+    console.error('⚠️ Server error:', err.stack);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : null
+    });
+});
+
+
+// API Routes
+app.use('/api/auth', authRoutes);
+
+// Routes
 app.get('/', (req, res) => {
     res.send('Welcome to DevConnect API');
 });
 
-// Redis Debug Route
-app.get('/api/redis-debug', (req, res) => {
-  res.json({
-    redisUrl: process.env.REDIS_URL ? 
-      process.env.REDIS_URL.replace(/:([^/]+)@/, ':*****@') : null,
-    isReady: redisClient.isReady,
-    config: {
-      host: redisClient.options?.socket?.host,
-      port: redisClient.options?.socket?.port,
-      tls: redisClient.options?.socket?.tls
-    }
-  });
-});
-
-// This route checks both MongoDB and Redis connections
+// Health Check
 app.get('/api/health', async (req, res) => {
-    if (!redisClient.isReady) {
-        return res.status(503).json({ error: 'Redis not connected' });
-    }
-
     try {
-        await redisClient.set('test', 'success', { EX: 10 });
-        const value = await redisClient.get('test');
+        await redisClient.set('healthcheck', 'ok', { EX: 10 });
+        const value = await redisClient.get('healthcheck');
+
         res.json({
             status: 'OK',
             mongo: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-            redis: redisClient.isReady ? 'Connected' : 'Disconnected',
-            testValue: value
+            redis: value === 'ok' ? 'Connected' : 'Disconnected',
+            timestamp: new Date().toISOString()
         });
     } catch (err) {
-        res.status(500).json({
-            error: err.message,
-            redisStatus: redisClient.isReady
+        res.status(503).json({
+            status: 'Service Unavailable',
+            error: err.message
         });
     }
 });
 
 
-
-
-// Database connections
+// Database and Server Initialization
 const startServer = async () => {
     try {
         // 1. Connect to MongoDB
         await connectDB();
         console.log('✅ MongoDB connected successfully');
 
-        // 2. Connect to Redis (with fallback)
-        // In your Redis connection block:
-        try {
-            console.log('Attempting Redis connection...');
-            await redisClient.connect();
+        // 2. Connect to Redis
+        await redisClient.connect();
+        console.log('✅ Redis connected successfully');
 
-            // Verify connection works
-            // Test connection
-  const pingResponse = await redisClient.ping();
-  console.log('Redis ping response:', pingResponse);
-            console.log('✅ Redis connected and responsive');
-        } catch (redisError) {
-            console.error('❌ Redis connection failed:', {
-                message: redisError.message,
-                code: redisError.code,
-                stack: redisError.stack
+        // 3. Start Express Server
+        const server = app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+            console.log('Health check at /api/health');
+        });
+
+        // 4. Socket.IO Setup
+        const io = new Server(server, {
+            cors: {
+                origin: process.env.CLIENT_URL || 'http://localhost:3000',
+                methods: ['GET', 'POST']
+            }
+        });
+
+        io.on('connection', (socket) => {
+            console.log(`New client connected: ${socket.id}`);
+
+            socket.on('disconnect', () => {
+                console.log(`Client disconnected: ${socket.id}`);
             });
-        }
-
-        // 3. Start Express server
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on  http://localhost:${PORT}`);
-            console.log('🔍 Check /api/health for connection status');
         });
 
     } catch (error) {
-        console.error('❌ Server startup failed:', error.message);
+        console.error('Server startup failed:', error.message);
         process.exit(1);
     }
 };
 
-// Start the server
+// Start the application
 startServer();
+
