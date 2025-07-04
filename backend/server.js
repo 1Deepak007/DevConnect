@@ -6,6 +6,8 @@ import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import redisClient from './config/redis.js';
 import authRoutes from './routes/auth.js';
+import userRoutes from './routes/user.js';
+import socialrouter from './routes/social.js';
 
 dotenv.config();
 
@@ -34,6 +36,9 @@ app.use((err, req, res, next) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/social', socialrouter);
+
 
 // Routes
 app.get('/', (req, res) => {
@@ -100,6 +105,9 @@ const startServer = async () => {
     }
 };
 
-// Start the application
+// console.log('JWT Secret:', process.env.JWT_SECRET);
+// console.log('Redis URL:', process.env.REDIS_URL);
+// console.log('MongoDB URI:', process.env.MONGO_URI);
+
 startServer();
 

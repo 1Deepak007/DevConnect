@@ -1,13 +1,13 @@
 import express from 'express';
-import { register, login, logout } from '../controllers/auth.js';
+import { signup, login, logout } from '../controllers/auth.js';
 import authenticate from '../middlewares/auth.js';
 import rateLimit from 'express-rate-limit';
 
-const router = express.Router();    
+const authRoutes = express.Router();    
 
 // Rate limiting for auth routes (prevent brute force attacks)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,     // 15 minutes
+  windowMs: 15 * 60 * 1000,     // Temporary Block IP for 15 minutes Duration
   max: 20,                      // Limit each IP to 20 requests per window
   standardHeaders: true,
   legacyHeaders: false,
@@ -15,20 +15,11 @@ const authLimiter = rateLimit({
 });
 
 // Public routes
-router.post('/register', 
-  authLimiter,
-  register
-);
+authRoutes.post('/signup', authLimiter, signup);
 
-router.post('/login', 
-  authLimiter,
-  login
-);
+authRoutes.post('/login', authLimiter, login);
 
 // Protected route (requires valid JWT)
-router.post('/logout', 
-  authenticate, 
-  logout
-);
+authRoutes.post('/logout', authenticate, logout);
 
-export default router;
+export default authRoutes;
