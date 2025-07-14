@@ -3,7 +3,7 @@ import { signup, login, logout } from '../controllers/auth.js';
 import authenticate from '../middlewares/auth.js';
 import rateLimit from 'express-rate-limit';
 
-const authRoutes = express.Router();    
+const authRoutes = express.Router();
 
 // Rate limiting for auth routes (prevent brute force attacks)
 const authLimiter = rateLimit({
@@ -21,5 +21,8 @@ authRoutes.post('/login', authLimiter, login);
 
 // Protected route (requires valid JWT)
 authRoutes.post('/logout', authenticate, logout);
+
+// authRoutes.get('/me', authenticate, getCurrentUser);
+// authRoutes.patch('/update-password', authenticate, updatePassword);
 
 export default authRoutes;

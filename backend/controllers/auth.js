@@ -45,7 +45,6 @@ export const signup = async (req, res) => {
     }
 }
 
-
 export const login = async (req, res) => {
     const {email,password} = req.body;
     if (!email || !password) {
@@ -86,7 +85,7 @@ export const login = async (req, res) => {
                             // console.log(`DEBUG (Login): Successfully called setEx for key: ${redisKey}`);
 
                             // *** NEW CRITICAL DEBUGGING STEP: Immediately try to retrieve the token ***
-                            const retrievedTokenImmediately = await redisClient.get(redisKey);
+                            // const retrievedTokenImmediately = await redisClient.get(redisKey);
                             // console.log(`DEBUG (Login): Token retrieved immediately after setEx: ${retrievedTokenImmediately ? retrievedTokenImmediately.substring(0, 30) + '...' : 'null'} (full length: ${retrievedTokenImmediately ? retrievedTokenImmediately.length : 'N/A'})`);
                             // console.log(`DEBUG (Login): Does immediately retrieved token match original? ${retrievedTokenImmediately === token}`);
 

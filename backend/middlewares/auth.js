@@ -27,7 +27,7 @@ const authenticate = async (req, res, next) => {
                 return res.status(401).json({ message: "Invalid or expired token" });
             }
 
-            req.user = decoded.id;
+            req.user = decoded;
             next(); // Proceed to the next middleware or route handler
         }
         catch (error) {
