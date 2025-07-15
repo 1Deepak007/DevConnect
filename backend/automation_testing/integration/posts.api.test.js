@@ -2,7 +2,7 @@
 
 import request from 'supertest';
 import express from 'express';
-import postRoutes from '../../routes/posts.js';
+import postRoutes from '../../routes/post.js';
 import Post from '../../models/Post.js';
 import User from '../../models/User.js'; // Needed for mocking populate
 import { upload, handleUploadErrors } from '../../middlewares/upload.js';

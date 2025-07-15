@@ -8,7 +8,15 @@ export const createChat = async (req, res) => {
         const { participants, isGroup, groupName } = req.body;
         const chat = new Chat({ participants, isGroup, groupName });
         await chat.save();
-        res.status(201).json(chat);
+        
+        // Return properly formatted JSON response
+        res.status(201).json({
+            message: "Chat created successfully",
+            chatId: chat._id,
+            participants: chat.participants,
+            isGroup: chat.isGroup,
+            createdAt: chat.createdAt
+        });
     }
     catch (err) {
         console.error('Error creating chat:', err);
@@ -19,7 +27,11 @@ export const createChat = async (req, res) => {
 // Send a message in a chat
 export const sendMessage = async (req, res) => {
     try {
-        const { chatId, text } = req.body;
+        const { text } = req.body;
+        const { chatId } = req.params;
+
+        console.log("Authenticated User:", req.user);
+
         const message = new Message({
             chat: chatId,
             sender: req.user._id,
@@ -68,14 +80,28 @@ export const getChats = async (req, res) => {
         const chats = await Chat.find({ participants: req.user._id })
             .populate('participants', 'name profilePicture')
             .populate('lastMessage')
-        res.json(chats);
+            .lean(); // Convert to plain JavaScript objects
+        
+        // Format the response
+        const formattedChats = chats.map(chat => ({
+            chatId: chat._id,
+            participants: chat.participants.map(p => ({
+                userId: p._id,
+                name: p.name,
+                avatar: p.profilePicture
+            })),
+            lastMessage: chat.lastMessage,
+            isGroup: chat.isGroup,
+            createdAt: chat.createdAt
+        }));
+
+        res.json(formattedChats);
     }
     catch (err) {
         console.error('Error fetching chats:', err);
         res.status(500).json({ error: 'Failed to fetch chats' });
     }
 }
-
 
 // // Read message tick
 // message.readBy = [req.user._id];

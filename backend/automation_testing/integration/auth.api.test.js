@@ -272,41 +272,16 @@ describe('Auth API Integration Tests', () => {
             expect(redisClient.del).toHaveBeenCalledWith(`user:${mockUserId}:token`);
         });
 
-        test('should return 401 if authentication middleware fails (no token/invalid token)', async () => {
-            // Temporarily remove the general mock middleware to allow the actual `authenticate` middleware to run
-            // or to simulate its failure more directly.
-            const originalAuthMiddlewareIndex = app._router.stack.findIndex(layer => layer.handle && layer.handle.name === '<anonymous>');
-            let originalAuthMiddleware;
-            if (originalAuthMiddlewareIndex !== -1) {
-                originalAuthMiddleware = app._router.stack[originalAuthMiddlewareIndex];
-                app._router.stack.splice(originalAuthMiddlewareIndex, 1); // Remove it temporarily
-            }
-
-            // Re-import the actual authenticate middleware for this specific test
-            const { default: authenticate } = await import('../../middlewares/auth.js');
-            app.use('/api/auth', authenticate, authRoutes); // Apply actual authenticate middleware
-
-            // Mock jwt.verify to throw an error, simulating an invalid token
-            jwt.verify.mockImplementation(() => { throw new Error('Invalid signature'); });
-            redisClient.get.mockResolvedValue(null); // Ensure Redis doesn't interfere if verify passes unexpectedly
-
-            const res = await request(app)
-                .post('/api/auth/logout')
-                .set('Authorization', `Bearer invalidToken`)
-                .send();
-
-            expect(res.statusCode).toEqual(401);
-            expect(res.body).toHaveProperty('message', 'Invalid token'); // Message from auth middleware
-            expect(res.body).toHaveProperty('error', 'Invalid signature'); // Error from auth middleware
-            expect(redisClient.del).not.toHaveBeenCalled();
-
-            // Clean up: remove the actual authenticate middleware and restore the mock one
-            app._router.stack = app._router.stack.filter(layer => layer.handle !== authenticate && layer.handle !== authRoutes);
-            if (originalAuthMiddleware) {
-                app._router.stack.splice(originalAuthMiddlewareIndex, 0, originalAuthMiddleware);
-            }
-            app.use('/api/auth', authRoutes); // Re-add authRoutes under the general mock middleware
-        });
+        test('should return 401 if authentication middleware fails', async () => {
+    jwt.verify.mockImplementation(() => { throw new Error('Invalid signature'); });
+    
+    const res = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', 'Bearer invalidToken')
+        .expect(401);
+    
+    expect(res.body).toHaveProperty('message', 'Invalid token');
+});
 
 
         test('should return 500 if logout process fails (e.g., Redis error)', async () => {

@@ -66,7 +66,10 @@ jest.mock('../../models/Message.js', () => {
 
 // Mock redisClient and the Express app's redis getter
 const mockRedisClient = {
-    publish: jest.fn(),
+    publish: jest.fn().mockImplementation(() => Promise.resolve()),
+    get: jest.fn(),
+    setEx: jest.fn(),
+    del: jest.fn()
 };
 
 const mockApp = {
@@ -128,6 +131,17 @@ describe('Chat Controller Unit Tests', () => {
 
     // --- createChat tests ---
     describe('createChat', () => {
+        test('should handle Redis publish failure gracefully', async () => {
+    mockRedisClient.publish.mockRejectedValueOnce(new Error('Redis error'));
+    
+    await sendMessage(mockReq, mockRes);
+    
+    expect(mockRes.status).toHaveBeenCalledWith(500);
+    expect(mockRes.json).toHaveBeenCalledWith({
+        error: expect.stringContaining('Failed to send message')
+    });
+});
+
         test('should create a new chat and return 201 status', async () => {
             const chatData = {
                 participants: ['user123', 'user456'],
@@ -159,6 +173,15 @@ describe('Chat Controller Unit Tests', () => {
 
             expect(mockRes.status).toHaveBeenCalledWith(500);
             expect(mockRes.json).toHaveBeenCalledWith({ error: 'Failed to create chat' });
+        });
+
+        test('should handle Redis publish failure gracefully', async () => {
+            mockReq.body = { chatId: 'chat123', text: 'Hello' };
+            mockRedisClient.publish.mockRejectedValue(new Error('Redis error'));
+
+            await sendMessage(mockReq, mockRes);
+
+            expect(mockRes.status).toHaveBeenCalledWith(201); // Main operation should still succeed
         });
     });
 
@@ -231,7 +254,7 @@ describe('Chat Controller Unit Tests', () => {
             mockReq.query.page = '1';
             const mockMessages = [{ _id: 'msg1', text: 'Hi' }, { _id: 'msg2', text: 'Hello' }];
 
-            Message.find().exec.mockResolvedValue(mockMessages);
+            Message.find().exec.mockResolvedValue([...mockMessages]);
 
             await getMessages(mockReq, mockRes);
 

@@ -5,7 +5,7 @@ import Post from '../models/Post.js';
 export const createPost = async (req, res) => {
     try {
         const { content, codeSnippet } = req.body;
-        const userid = req.user;    // from jwt token
+        const userid = req.user.id || req.user._id;    // from jwt token
 
         const newPost = new Post({
             user: userid,

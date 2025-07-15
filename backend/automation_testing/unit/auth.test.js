@@ -14,14 +14,12 @@ jest.mock('jsonwebtoken', () => ({
 
 // *** CHANGED: Adjust the redisClient mock to directly expose 'get' ***
 jest.mock('../../config/redis.js', () => ({
-    // Directly expose 'get' as if it's a top-level property of the module's default export
     get: jest.fn(),
-    // If there are other methods like 'set', 'del', etc., add them here too:
-    // set: jest.fn(),
-    // del: jest.fn(),
+    setEx: jest.fn(),
+    del: jest.fn(),
+    connect: jest.fn(),
+    on: jest.fn()
 }));
-
-
 // 3. Describe block for the test suite
 describe('authenticate middleware', () => {
     let mockReq;
@@ -29,22 +27,17 @@ describe('authenticate middleware', () => {
     let mockNext;
 
     beforeEach(() => {
-        jest.clearAllMocks();
-
-        mockReq = {
-            headers: {}
-        };
-        mockRes = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        mockNext = jest.fn();
-
-        // Access mocked functions directly
-        jwt.verify.mockClear();
-        // *** CHANGED: Access redisClient.get directly as per the new mock structure ***
-        redisClient.get.mockClear();
-    });
+    jest.clearAllMocks();
+    mockReq = {
+        headers: {},
+        app: { get: jest.fn().mockReturnValue(redisClient) }
+    };
+    mockRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+    };
+    mockNext = jest.fn();
+});
     // --- Test Cases ---
 
     // Test Case 1: No token provided
