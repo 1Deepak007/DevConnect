@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import connectDB from './config/db.js';
-import redisClient from './config/redis.js';
+// import redisClient from './config/redis.js';
+import { redisClient, redisSubscriber } from './config/redis.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import socialrouter from './routes/social.js';
@@ -82,6 +83,8 @@ const startServer = async () => {
         // 2. Connect to Redis
         await redisClient.connect();
         console.log('✅ Redis connected successfully');
+        await redisSubscriber.connect();
+        console.log('✅ Redis subscriber connected successfully');
 
         // 3. Start Express Server
         const server = app.listen(PORT, () => {
@@ -94,6 +97,27 @@ const startServer = async () => {
             cors: {
                 origin: process.env.CLIENT_URL || 'http://localhost:3000',
                 methods: ['GET', 'POST']
+            }
+        });
+
+
+        // Subscribe to Redis channel : means that the server will listen for messages on the Redis channel.
+        // Use redisSubscriber for subscriptions
+        await redisSubscriber.subscribe('chat:*');
+
+        redisSubscriber.on('message', (channel, messageStr) => {
+            const chatId = channel.split(':')[1];
+            const { eventType } = JSON.parse(messageStr);
+
+            switch (eventType) {
+                case 'new-message':
+                    io.to(`chat:${chatId}`).emit('new-message', JSON.parse(messageStr));
+                    break;
+                case 'message-read':
+                    io.to(`chat:${chatId}`).emit('message-read', JSON.parse(messageStr));
+                    break;
+                default:
+                    console.log(`Unknown event type: ${eventType}`);
             }
         });
 
@@ -142,10 +166,6 @@ const startServer = async () => {
             });
         });
 
-        // Subscribe to Redis channel : means that the server will listen for messages on the Redis channel.
-        redisClient.subscribe('chat:*'
-            // , (err) => { if (err) console.log('Error subscribing to Redis channel:', err);}
-        )
 
         redisClient.on('error', (err) => {
             console.error('Redis client error:', err);

@@ -4,24 +4,23 @@
 import authenticate from '../../middlewares/auth.js';
 import jwt from 'jsonwebtoken';
 import redisClient from '../../config/redis.js';
+
 // 2. Import and mock its external dependencies
-//    For ES Modules, when using jest.mock(), and especially with persistent
-//    'require is not defined' errors, using `jest.createMockFromModule`
-//    within the factory can sometimes resolve it.
-//    We are mocking the 'default' export because we import them as:
-//    `import jwt from 'jsonwebtoken';` and `import redisClient from '../../config/redis.js';`
-
+//    Adjust the jwt mock (already done, keep as is)
 jest.mock('jsonwebtoken', () => ({
-    default: {
-        verify: jest.fn(),
-    },
+    verify: jest.fn(),
+    sign: jest.fn(), // Add sign if you need to mock it in other tests
 }));
 
+// *** CHANGED: Adjust the redisClient mock to directly expose 'get' ***
 jest.mock('../../config/redis.js', () => ({
-    default: {
-        get: jest.fn(),
-    },
+    // Directly expose 'get' as if it's a top-level property of the module's default export
+    get: jest.fn(),
+    // If there are other methods like 'set', 'del', etc., add them here too:
+    // set: jest.fn(),
+    // del: jest.fn(),
 }));
+
 
 // 3. Describe block for the test suite
 describe('authenticate middleware', () => {
@@ -42,8 +41,9 @@ describe('authenticate middleware', () => {
         mockNext = jest.fn();
 
         // Access mocked functions directly
-        jwt.default.verify.mockClear();
-        redisClient.default.get.mockClear();
+        jwt.verify.mockClear();
+        // *** CHANGED: Access redisClient.get directly as per the new mock structure ***
+        redisClient.get.mockClear();
     });
     // --- Test Cases ---
 
@@ -58,7 +58,7 @@ describe('authenticate middleware', () => {
     // Test Case 2: Invalid token (jwt.verify throws an error)
     test('should return 401 if token is invalid', async () => {
         mockReq.headers.authorization = 'Bearer invalidtokenstring';
-        jwt.verify.mockImplementation(() => { // Use jwt.verify directly
+        jwt.verify.mockImplementation(() => {
             throw new Error('Invalid signature');
         });
 
@@ -76,12 +76,14 @@ describe('authenticate middleware', () => {
         const decodedPayload = { id: 'testUserId', username: 'testuser' };
         mockReq.headers.authorization = `Bearer ${validToken}`;
 
-        jwt.verify.mockReturnValue(decodedPayload); // Use jwt.verify directly
-        redisClient.get.mockResolvedValue(null); // Use redisClient.get directly
+        jwt.verify.mockReturnValue(decodedPayload);
+        // *** CHANGED: Access redisClient.get directly ***
+        redisClient.get.mockResolvedValue(null);
 
         await authenticate(mockReq, mockRes, mockNext);
 
         expect(jwt.verify).toHaveBeenCalledWith(validToken, process.env.JWT_SECRET);
+        // *** CHANGED: Access redisClient.get directly ***
         expect(redisClient.get).toHaveBeenCalledWith(`user:${decodedPayload.id}:token`);
         expect(mockRes.status).toHaveBeenCalledWith(401);
         expect(mockRes.json).toHaveBeenCalledWith({ message: 'Invalid or expired token' });
@@ -94,12 +96,14 @@ describe('authenticate middleware', () => {
         const decodedPayload = { id: 'testUserId', username: 'testuser' };
         mockReq.headers.authorization = `Bearer ${validToken}`;
 
-        jwt.verify.mockReturnValue(decodedPayload); // Use jwt.verify directly
-        redisClient.get.mockResolvedValue(validToken); // Use redisClient.get directly
+        jwt.verify.mockReturnValue(decodedPayload);
+        // *** CHANGED: Access redisClient.get directly ***
+        redisClient.get.mockResolvedValue(validToken);
 
         await authenticate(mockReq, mockRes, mockNext);
 
         expect(jwt.verify).toHaveBeenCalledWith(validToken, process.env.JWT_SECRET);
+        // *** CHANGED: Access redisClient.get directly ***
         expect(redisClient.get).toHaveBeenCalledWith(`user:${decodedPayload.id}:token`);
         expect(mockReq.user).toEqual(decodedPayload);
         expect(mockNext).toHaveBeenCalledTimes(1);
@@ -115,11 +119,13 @@ describe('authenticate middleware', () => {
         mockReq.headers.authorization = `Bearer ${providedToken}`;
 
         jwt.verify.mockReturnValue(decodedPayload);
+        // *** CHANGED: Access redisClient.get directly ***
         redisClient.get.mockResolvedValue(storedDifferentToken);
 
         await authenticate(mockReq, mockRes, mockNext);
 
         expect(jwt.verify).toHaveBeenCalledWith(providedToken, process.env.JWT_SECRET);
+        // *** CHANGED: Access redisClient.get directly ***
         expect(redisClient.get).toHaveBeenCalledWith(`user:${decodedPayload.id}:token`);
         expect(mockRes.status).toHaveBeenCalledWith(401);
         expect(mockRes.json).toHaveBeenCalledWith({ message: 'Invalid or expired token' });

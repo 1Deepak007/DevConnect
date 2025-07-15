@@ -5,12 +5,11 @@ module.exports = {
       '@babel/preset-env',
       {
         targets: {
-          node: 'current', // Transpile for the current Node.js version you are running
+          node: 'current', // Transpile for the current Node.js version
         },
-        // Jest handles module transformation, so we tell Babel not to.
-        // This is crucial for Jest's mocking to work correctly.
-        modules: false,
+        modules: 'commonjs', // Crucially, transform ES modules to CommonJS
       },
     ],
   ],
+  plugins: [], // Add any other necessary Babel plugins here
 };
